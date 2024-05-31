@@ -1,0 +1,86 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "6.2hd/nodejs-app"
+        DOCKER_TAG = "latest"
+        SONARQUBE_URL = "http://localhost:9000/"
+        SONARQUBE_TOKEN = credentials('squ_46b45c903d6a8455e17b31e530f1d2ff016a614a') // Jenkins credential
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                script {
+                    // Install dependencies
+                    sh 'npm install'
+                    // Build Docker image
+                    sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG .'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                script {
+                    // Run tests
+                    sh 'npm test'
+                }
+            }
+            post {
+                always {
+                    // Publish test results
+                    junit 'test-results.xml'
+                }
+            }
+        }
+
+        stage('Code Quality Analysis') {
+            steps {
+                script {
+                    // Run SonarQube analysis
+                    withSonarQubeEnv('SonarQube') { 
+                        sh 'sonar-scanner -Dsonar.projectKey=nodejs-app -Dsonar.sources=. -Dsonar.host.url=$SONARQUBE_URL -Dsonar.login=$SONARQUBE_TOKEN'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Staging') {
+            steps {
+                script {
+                    // Deploy Docker container to staging environment
+                    sh 'docker run -d --name nodejs-app-staging -p 3000:3000 $DOCKER_IMAGE:$DOCKER_TAG'
+                }
+            }
+        }
+
+        stage('Release to Production') {
+            steps {
+                input message: 'Approve deployment to production?', ok: 'Deploy'
+                script {
+                    // Deploy Docker container to production environment
+                    sh 'docker run -d --name nodejs-app-prod -p 80:3000 $DOCKER_IMAGE:$DOCKER_TAG'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Cleanup Docker containers
+            sh 'docker rm -f nodejs-app-staging || true'
+            sh 'docker rm -f nodejs-app-prod || true'
+        }
+
+        success {
+            // Monitoring and alerting setup (example using Datadog)
+            datadogServiceCheck 'jenkins.job.status', 0, tags: ['job:nodejs-app-pipeline']
+        }
+
+        failure {
+            // Send alert on failure
+            datadogServiceCheck 'jenkins.job.status', 2, tags: ['job:nodejs-app-pipeline']
+        }
+    }
+}
