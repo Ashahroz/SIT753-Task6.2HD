@@ -9,13 +9,21 @@ pipeline {
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Build') {
             steps {
                 script {
-                    // Install dependencies
-                    sh 'npm install'
-                    // Build Docker image
-                    sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG .'
+                    node {
+                        // Install dependencies
+                        sh 'npm install'
+                        // Build Docker image
+                        sh 'docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .'
+                    }
                 }
             }
         }
@@ -23,14 +31,20 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    // Run tests
-                    sh 'npm test'
+                    node {
+                        // Run tests
+                        sh 'npm test'
+                    }
                 }
             }
             post {
                 always {
-                    // Publish test results
-                    junit 'test-results.xml'
+                    script {
+                        node {
+                            // Publish test results
+                            junit 'test-results.xml'
+                        }
+                    }
                 }
             }
         }
@@ -38,9 +52,11 @@ pipeline {
         stage('Code Quality Analysis') {
             steps {
                 script {
-                    // Run SonarQube analysis
-                    withSonarQubeEnv('SonarQube') { 
-                        sh 'sonar-scanner -Dsonar.projectKey=nodejs-app -Dsonar.sources=. -Dsonar.host.url=$SONARQUBE_URL -Dsonar.login=$SONARQUBE_TOKEN'
+                    node {
+                        // Run SonarQube analysis
+                        withSonarQubeEnv('SonarQube') {
+                            sh 'sonar-scanner -Dsonar.projectKey=nodejs-app -Dsonar.sources=. -Dsonar.host.url=${SONARQUBE_URL} -Dsonar.login=${SONARQUBE_TOKEN}'
+                        }
                     }
                 }
             }
@@ -49,8 +65,10 @@ pipeline {
         stage('Deploy to Staging') {
             steps {
                 script {
-                    // Deploy Docker container to staging environment
-                    sh 'docker run -d --name nodejs-app-staging -p 3000:3000 $DOCKER_IMAGE:$DOCKER_TAG'
+                    node {
+                        // Deploy Docker container to staging environment
+                        sh 'docker run -d --name nodejs-app-staging -p 3000:3000 ${DOCKER_IMAGE}:${DOCKER_TAG}'
+                    }
                 }
             }
         }
@@ -59,8 +77,10 @@ pipeline {
             steps {
                 input message: 'Approve deployment to production?', ok: 'Deploy'
                 script {
-                    // Deploy Docker container to production environment
-                    sh 'docker run -d --name nodejs-app-prod -p 80:3000 $DOCKER_IMAGE:$DOCKER_TAG'
+                    node {
+                        // Deploy Docker container to production environment
+                        sh 'docker run -d --name nodejs-app-prod -p 80:3000 ${DOCKER_IMAGE}:${DOCKER_TAG}'
+                    }
                 }
             }
         }
@@ -68,19 +88,37 @@ pipeline {
 
     post {
         always {
-            // Cleanup Docker containers
-            sh 'docker rm -f nodejs-app-staging || true'
-            sh 'docker rm -f nodejs-app-prod || true'
+            script {
+                node {
+                    // Cleanup Docker containers
+                    sh 'docker rm -f nodejs-app-staging || true'
+                    sh 'docker rm -f nodejs-app-prod || true'
+                    // Example post action - ensure it's within a node block
+                    sh 'echo Post actions...'
+                    // Monitoring and alerting setup (example using Datadog)
+                    // datadogServiceCheck 'jenkins.job.status', 0, tags: ['job:nodejs-app-pipeline']
+                }
+            }
         }
 
         success {
-            // Monitoring and alerting setup (example using Datadog)
-            datadogServiceCheck 'jenkins.job.status', 0, tags: ['job:nodejs-app-pipeline']
+            script {
+                node {
+                    // Example of sending a successful job status to Datadog
+                    // datadogServiceCheck 'jenkins.job.status', 0, tags: ['job:nodejs-app-pipeline']
+                }
+            }
         }
 
         failure {
-            // Send alert on failure
-            datadogServiceCheck 'jenkins.job.status', 2, tags: ['job:nodejs-app-pipeline']
+            script {
+                node {
+                    // Handle failure actions
+                    sh 'echo Handling failure...'
+                    // Example of sending a failed job status to Datadog
+                    // datadogServiceCheck 'jenkins.job.status', 2, tags: ['job:nodejs-app-pipeline']
+                }
+            }
         }
     }
 }
