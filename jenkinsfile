@@ -116,9 +116,9 @@ pipeline {
                     // Handle failure actions
                     sh 'echo Handling failure...'
                     // Example of sending a failed job status to Datadog
-                    // datadogServiceCheck 'jenkins.job.status', 2, tags: ['job:nodejs-app-pipeline']
+                    // datadogSerceCheck 'jenkins.job.status', 2, tags: ['job:nodejs-app-pipeline']
                 }
             }
         }
     }
-}
+////}
