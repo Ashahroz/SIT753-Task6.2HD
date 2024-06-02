@@ -57,12 +57,30 @@ pipeline {
 
         stage('Release to Production') {
             steps {
-                input message: 'Approve deployment to production?', ok: 'Deployed'
+                input message: 'Approve deployment to production?', ok: 'Deploy'
                 script {
                     // Deploy Docker container to production environment
                     sh 'docker run -d --name nodejs-app-prod -p 80:3000 $DOCKER_IMAGE:$DOCKER_TAG'
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            // Cleanup Docker containers
+            sh 'docker rm -f nodejs-app-staging || true'
+            sh 'docker rm -f nodejs-app-prod || true'
+        }
+
+        success {
+            // Monitoring and alerting setup (example using Datadog)
+            datadogServiceCheck 'jenkins.job.status', 0, tags: ['job:nodejs-app-pipeline']
+        }
+
+        failure {
+            // Send alert on failure
+            datadogServiceCheck 'jenkins.job.status', 2, tags: ['job:nodejs-app-pipeline']
         }
     }
 }
