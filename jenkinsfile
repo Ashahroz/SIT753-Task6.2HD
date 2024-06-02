@@ -86,39 +86,4 @@ pipeline {
         }
     }
 
-   //post {
-     //   always {
-       //     script {
-         //       node {
-           //         // Cleanup Docker containers
-             //       sh 'docker rm -f nodejs-app-staging || true'
-               //     sh 'docker rm -f nodejs-app-prod || true'
-                 //   // Example post action - ensure it's within a node block
-                   // sh 'echo Post actions...'
-                    //// Monitoring and alerting setup (example using Datadog)
-                    // datadogServiceCheck 'jenkins.job.status', 0, tags: ['job:nodejs-app-pipeline']
-               // }
-            //}
-        //}
 
-        success {
-            script {
-                node {
-                    // Example of sending a successful job status to Datadog
-                    // datadogServiceCheck 'jenkins.job.status', 0, tags: ['job:nodejs-app-pipeline']
-                }
-            }
-        }
-
-        failure {
-            script {
-                node {
-                    // Handle failure actions
-                    sh 'echo Handling failure...'
-                    // Example of sending a failed job status to Datadog
-                    // datadogSerceCheck 'jenkins.job.status', 2, tags: ['job:nodejs-app-pipeline']
-                }
-            }
-        }
-    }
-////}
